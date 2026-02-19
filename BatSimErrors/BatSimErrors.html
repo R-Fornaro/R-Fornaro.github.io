@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>α and β diversity error calculation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+  :root{
+    font-family: system-ui, Arial, sans-serif;
+    font-size: 20px;
+  }
+  body{ margin: 32px; color:#111827; }
+  h1{ font-size: 2.0rem; margin:0; }
+
+  .card{
+    border: 2px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 24px;
+    max-width: 1100px;
+  }
+
+  .header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:18px;
+    margin-bottom: 18px;
+  }
+
+  .logo{ width:150px; height:auto; opacity:0.9; }
+
+  .notice{
+    background: #111827; /* blue box */
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 14px 0 18px 0;
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+
+  .row{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+    align-items:end;
+  }
+
+  label{
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+    display:block;
+    color:#374151;
+  }
+
+  select, button{
+    padding: 12px 16px;
+    font-size: 1.05rem;
+    border-radius: 12px;
+    border: 2px solid #cbd5e1;
+    background: #fff;
+    cursor:pointer;
+  }
+  select:disabled, button:disabled{
+    background:#f3f4f6;
+    color:#9ca3af;
+    cursor:not-allowed;
+  }
+
+  .btn-calc{
+    background:#111827;
+    color:white;
+    border:none;
+    font-weight:700;
+  }
+  .btn-calc:not(:disabled):hover{ background:#000; }
+
+  .results{ margin-top: 18px; }
+
+  .panel{
+    padding: 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 14px;
+    margin-top: 14px;
+  }
+
+  .kv{
+    display:grid;
+    grid-template-columns: 220px 1fr;
+    gap: 10px 14px;
+  }
+  .k{ color:#6b7280; font-weight:650; }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+    font-size: 0.98rem;
+  }
+  th, td{
+    text-align:left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align:top;
+  }
+  th{ color:#374151; font-weight:700; }
+
+  .small{ font-size:0.95rem; color:#111827; }
+</style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="header">
+      <div>
+        <h1>α and β diversity error calculation</h1>
+        <div class="small">This web application is intended to return the error committed in calculating &alpha; and &beta; diversity with Sonotypes.</div>
+      </div>
+      <img src="lab.png" class="logo" alt="Lab Logo">
+    </div>
+
+    <div class="notice" id="status">
+      Select number of species and sonotypes and press the calculate button.
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="selSpecies">Species</label>
+        <select id="selSpecies" disabled>
+          <option value="">—</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="selSonotypes">Sonotypes</label>
+        <select id="selSonotypes" disabled>
+          <option value="">—</option>
+        </select>
+      </div>
+
+      <button id="calculate" class="btn-calc" disabled>Calculate</button>
+    </div>
+
+    <div class="results" id="results"></div>
+  </div>
+
+<script>
+  // Change if your CSV filename differs
+  const CSV_PATH = "OutSimulation50.csv";
+
+  const selSpecies = document.getElementById("selSpecies");
+  const selSonotypes = document.getElementById("selSonotypes");
+  const btnCalc = document.getElementById("calculate");
+  const results = document.getElementById("results");
+  const statusEl = document.getElementById("status");
+
+  let data = [];
+  let allSpecies = [];
+  let allSonotypes = [];
+
+  function setStatus(t){ statusEl.textContent = t; }
+
+	function parseCSV(text){
+	  // Normalize ALL line endings to \n
+	  const normalized = text
+		.replace(/\r\n/g, "\n")
+		.replace(/\r/g, "\n")
+		.trim();
+
+	  const lines = normalized.split("\n");
+	  if (lines.length === 0) return [];
+
+	  // Detect delimiter from header line
+	  const headerLine = lines[0];
+	  const commaCount = (headerLine.match(/,/g) || []).length;
+	  const semiCount  = (headerLine.match(/;/g) || []).length;
+	  const delim = semiCount > commaCount ? ";" : ",";
+
+	  return lines.map(line => line.split(delim));
+	}
+
+  function toNum(v){
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  }
+
+  function fmtNum(x, digits=6){
+    return (x === null) ? "NA" : x.toFixed(digits);
+  }
+
+  function uniqueSortedNumeric(arr){
+    const out = [...new Set(arr.filter(Number.isFinite))];
+    out.sort((a,b)=>a-b);
+    return out;
+  }
+
+  function buildOptions(selectEl, values, keepValue=null){
+    // values: numeric array
+    const keep = keepValue !== null ? String(keepValue) : "";
+    const html =
+      `<option value="">—</option>` +
+      values.map(v => {
+        const s = String(v);
+        const selected = (keep && s === keep) ? " selected" : "";
+        return `<option value="${s}"${selected}>${s}</option>`;
+      }).join("");
+    selectEl.innerHTML = html;
+  }
+
+  function rebuildDropdowns(){
+    // current selections (numeric or null)
+    const s = toNum(selSpecies.value);
+    const so = toNum(selSonotypes.value);
+
+    // Feasible sets given current selection on the other axis
+    const feasibleSpecies = (so === null) ? allSpecies : allSpecies.filter(v => v >= so);
+    const feasibleSonotypes = (s === null) ? allSonotypes : allSonotypes.filter(v => v <= s);
+
+    // Keep current values if still feasible, else clear
+    const sKeep = (s !== null && feasibleSpecies.includes(s)) ? s : null;
+    const soKeep = (so !== null && feasibleSonotypes.includes(so)) ? so : null;
+
+    buildOptions(selSpecies, feasibleSpecies, sKeep);
+    buildOptions(selSonotypes, feasibleSonotypes, soKeep);
+
+    // Enable/disable Calculate
+    const sOk = toNum(selSpecies.value) !== null;
+    const soOk = toNum(selSonotypes.value) !== null;
+    btnCalc.disabled = !(sOk && soOk);
+
+
+    setStatus("Select number of species and sonotypes and press the calculate button.");
+  }
+
+  function computeStats(rows, key){
+    const vals = rows.map(r => toNum(r[key])).filter(v => v !== null);
+    if (vals.length === 0) return { n: 0, mean: null, min: null, max: null };
+    const n = vals.length;
+    const mean = vals.reduce((a,b)=>a+b,0)/n;
+    return { n, mean, min: Math.min(...vals), max: Math.max(...vals) };
+  }
+
+  function render(rows, speciesValue, sonotypeValue){
+    results.innerHTML = "";
+
+    const rmseStats = computeStats(rows, "RMSE.A");
+    const resbStats = computeStats(rows, "Res.B");
+
+    const summary = document.createElement("div");
+    summary.className = "panel";
+    summary.innerHTML = `
+      <div class="kv">
+        <div class="k">Species</div><div>${speciesValue}</div>
+        <div class="k">Sonotypes</div><div>${sonotypeValue}</div>
+        
+
+        <div class="k">RMSE of &alpha;-diversity </div><div>${fmtNum(rmseStats.mean)}</div>
+       
+
+        <div class="k">Residuals of &beta;-diversity </div><div>${fmtNum(resbStats.mean)}</div>
+        
+      </div>
+    `;
+    results.appendChild(summary);
+
+    
+  }
+
+  function calculate(){
+    const s = toNum(selSpecies.value);
+    const so = toNum(selSonotypes.value);
+
+    if (s === null || so === null){
+      results.innerHTML = "";
+      btnCalc.disabled = true;
+      setStatus("Select number of species and sonotypes and press the calculate button.");
+      return;
+    }
+
+    if (so > s){
+      // Should be impossible due to filtering, but keep a guard.
+      results.innerHTML = "";
+      btnCalc.disabled = true;
+      setStatus("Infeasible selection: sonotypes cannot exceed species.");
+      return;
+    }
+
+    const matches = data.filter(r => r.Species === s && r.Sonotypes === so);
+
+    <!--setStatus("α and β diversity error calculation")-->;
+    render(matches, s, so);
+  }
+
+  selSpecies.addEventListener("change", rebuildDropdowns);
+  selSonotypes.addEventListener("change", rebuildDropdowns);
+  btnCalc.addEventListener("click", calculate);
+
+  async function loadCSV(){
+    try{
+      const res = await fetch(CSV_PATH);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+
+      const rows = parseCSV(text);
+      const header = rows[0];
+	  console.log("RAW header array:", header);
+	  console.log("RAW header joined:", header.join(" | "));
+	  console.log("RAW header char codes of first cell:", [...header[0]].map(c => c.charCodeAt(0)));
+
+      const iSpecies = header.indexOf("Species");
+      const iPhono   = header.indexOf("Phonotypes"); // CSV column name
+      const iRMSE    = header.indexOf("RMSE.A");
+      const iResB    = header.indexOf("Res.B");
+
+      if ([iSpecies,iPhono,iRMSE,iResB].includes(-1)){
+        setStatus("Error: Required columns missing in CSV (need Species, Phonotypes, RMSE.A, Res.B).");
+        console.log("Parsed header:", header);
+        return;
+      }
+
+      data = rows.slice(1).map(r => ({
+        Species: toNum(r[iSpecies]),
+        Sonotypes: toNum(r[iPhono]),   // internal name is Sonotypes (display), sourced from Phonotypes column
+        "RMSE.A": r[iRMSE],
+        "Res.B":  r[iResB]
+      })).filter(r => r.Species !== null && r.Sonotypes !== null);
+
+      allSpecies = uniqueSortedNumeric(data.map(d => d.Species));
+      allSonotypes = uniqueSortedNumeric(data.map(d => d.Sonotypes));
+
+      buildOptions(selSpecies, allSpecies, null);
+      buildOptions(selSonotypes, allSonotypes, null);
+
+      selSpecies.disabled = false;
+      selSonotypes.disabled = false;
+
+      rebuildDropdowns();
+    } catch(e){
+      setStatus("Cannot load CSV. Start a local server (python -m http.server 8000) and open http://localhost:8000/...");
+      console.error(e);
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", loadCSV);
+</script>
+
+</body>
+</html>
