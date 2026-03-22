@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>α and β diversity error calculation</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+	<meta charset="UTF-8">
+	<title>α and β diversity error calculation</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
 <style>
   :root{
     font-family: system-ui, Arial, sans-serif;
@@ -91,6 +92,10 @@
     gap: 10px 14px;
   }
   .k{ color:#6b7280; font-weight:650; }
+  .formula{
+  font-family: "Times New Roman", serif;
+  font-size: 18px;
+  margin: 20px 0;}
 
   table{
     width:100%;
@@ -123,7 +128,9 @@
     <div class="header">
       <div>
         <h1>α and β diversity error calculation</h1>
-        <div class="small">This web application is intended to return the error committed in calculating &alpha; and &beta; diversity with Sonotypes.</div>
+        <div class="small">This web application is intended to return the error committed in calculating &alpha; and &beta; diversity with Sonotypes.<br>
+						   Error on &alpha; diversity is evaluated trough the root mean square error (RMSE)<sup>1</sup></div>
+						   Error on &beta; with simple residual<sup>2</sup>
       </div>
       <img src="lab.png" class="logo" alt="Lab Logo">
     </div>
@@ -151,6 +158,16 @@
     </div>
 
     <div class="results" id="results"></div>
+	<div>
+	  \[
+	  1. \quad \mathrm{RMSE} = \sqrt{\frac{1}{n} \sum (\hat{y}_i - y_i)^2}
+	  \]
+	</div>
+	<div>
+	  \[
+	  2. \quad \mathrm{residual} = \hat{y}_i - y 
+	  \]
+	</div>
   </div>
 
 <script>
@@ -267,7 +284,6 @@
        
 
         <div class="k">Residuals of &beta;-diversity </div><div>${fmtNum(resbStats.mean)}</div>
-        
       </div>
     `;
     results.appendChild(summary);
@@ -353,9 +369,9 @@
   document.addEventListener("DOMContentLoaded", loadCSV);
 </script>
 <footer class="site-footer">
-  © 2026 Riccardo Fornaro<br>
-  Department of Agricultural Sciences — University of Napoli Federico II<br>
-  Naples, Italy
+  Riccardo Fornaro<sup>a</sup>, Francesco Giannino<sup>a</sup>, Miriam Knörnschild<sup>b</sup>, Danilo Russo<sup>a</sup><br>
+  Dipartimento Di Agraria, Università Degli Studi Di Napoli Federico II, Portici (NA), Italy<sup>a</sup><br>
+  Humboldt University, Berlin, Germany<sup>b</sup><br>
 </footer>
 </body>
 </html>
