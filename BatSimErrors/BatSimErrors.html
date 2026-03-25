@@ -5,11 +5,19 @@
 	<title>α and β diversity error calculation</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-</head>
+
 <style>
+	html, body{
+	  height: 100%;
+	}
+
+	body{
+	  display: flex;
+	  flex-direction: column;
+	}
   :root{
     font-family: system-ui, Arial, sans-serif;
-    font-size: 20px;
+    font-size: clamp(16px, 1.2vw, 20px);
   }
   body{ margin: 32px; color:#111827; }
   h1{ font-size: 2.0rem; margin:0; }
@@ -18,7 +26,9 @@
     border: 2px solid #e5e7eb;
     border-radius: 18px;
     padding: 24px;
-    max-width: 1100px;
+    max-width: 1400px;
+	margin: 0 auto;
+	width: 100%;
   }
 
   .header{
@@ -46,6 +56,7 @@
     gap:16px;
     flex-wrap:wrap;
     align-items:end;
+	flex-wrap: wrap;
   }
 
   label{
@@ -86,17 +97,22 @@
     margin-top: 14px;
   }
 
-  .kv{
-    display:grid;
-    grid-template-columns: 220px 1fr;
-    gap: 10px 14px;
-  }
-  .k{ color:#6b7280; font-weight:650; }
-  .formula{
-  font-family: "Times New Roman", serif;
-  font-size: 18px;
-  margin: 20px 0;}
+.kv{
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 10px 14px;
+}
 
+@media (max-width: 600px){
+  .kv{
+    grid-template-columns: 1fr;   /* stack vertically */
+  }
+
+  .k{
+    font-weight: 600;
+    margin-top: 8px;
+  }
+}
   table{
     width:100%;
     border-collapse:collapse;
@@ -110,15 +126,28 @@
     vertical-align:top;
   }
   th{ color:#374151; font-weight:700; }
+  @media (max-width: 600px){
+  .small{ font-size:0.85rem; color:#111827 }
+  }
 
-  .small{ font-size:0.95rem; color:#111827; }
-  .site-footer{
-  margin-top: 60px;
+  .site-footer{  max-width: 1400px;
+  width: 100%;
+  margin: 60px auto 0 auto;
+  margin-top: auto;
+  margin-bottom: 25px;
   padding-top: 20px;
   border-top: 1px solid #e5e7eb;
-  font-size: 0.9rem;
   color: #374151;
+  font-size: 0.85rem;
   text-align: center;
+  box-sizing: border-box;
+ }
+ .explain{
+  grid-column: 1 / -1;   /* spans both columns */
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: -12px;
+  margin-bottom: 6px;
 }
 </style>
 </head>
@@ -127,10 +156,13 @@
   <div class="card">
     <div class="header">
       <div>
-        <h1>α and β diversity error calculation</h1>
-        <div class="small">This web application is intended to return the error committed in calculating &alpha; and &beta; diversity with Sonotypes.<br>
-						   Error on &alpha; diversity is evaluated trough the root mean square error (RMSE)<sup>1</sup></div>
-						   Error on &beta; with simple residual<sup>2</sup>
+		<h1> Estimating Bias in α- and β-Diversity from Reduced Taxonomic Resolution </h1>
+			<div class="small">
+			This web application estimates the expected error in α- and β-diversity when taxa are grouped into coarser categories because of identification limits.<br>
+			It has been developed for the acoustic monitoring of bats, where species are often grouped into sonotypes instead of being identified at the species level.<br>
+			The results are based on simulation experiments showing that biodiversity is systematically underestimated when multiple species are collapsed into fewer sonotypes.<br>
+			The magnitude of this bias depends primarily on taxonomic resolution, i.e. the ratio between the number of species and the number of sonotypes.<br>
+			</div>
       </div>
       <img src="lab.png" class="logo" alt="Lab Logo">
     </div>
@@ -158,6 +190,12 @@
     </div>
 
     <div class="results" id="results"></div>
+		<footer class="site-footer">
+	  Riccardo Fornaro<sup>a</sup>, Francesco Giannino<sup>a</sup>, Miriam Knörnschild<sup>b</sup>, Danilo Russo<sup>a</sup><br>
+	  Dipartimento Di Agraria, Università Degli Studi Di Napoli Federico II, Portici (NA), Italy<sup>a</sup><br>
+	  Humboldt University, Berlin, Germany<sup>b</sup><br>
+	</footer>
+	<!--
 	<div>
 	  \[
 	  1. \quad \mathrm{RMSE} = \sqrt{\frac{1}{n} \sum (\hat{y}_i - y_i)^2}
@@ -168,6 +206,7 @@
 	  2. \quad \mathrm{residual} = \hat{y}_i - y 
 	  \]
 	</div>
+	-->
   </div>
 
 <script>
@@ -275,15 +314,24 @@
     const summary = document.createElement("div");
     summary.className = "panel";
     summary.innerHTML = `
-      <div class="kv">
+      <div style="display:flex; justify-content:center; margin-bottom:0px;">
+		<div style="max-width:1200px; text-align:center;">
+	  The reported RMSE (for α-diversity) and residual error (for β-diversity) provide an expected bias range associated with sonotype-based estimates.
+	  These values should be interpreted as a guide to uncertainty, rather than as exact corrections for a specific dataset.
+	  </div>
+	  </div>
+	  <div><br></div>
+	  <div class="kv">
+	    
         <div class="k">Species</div><div>${speciesValue}</div>
         <div class="k">Sonotypes</div><div>${sonotypeValue}</div>
         
 
         <div class="k">RMSE of &alpha;-diversity </div><div>${fmtNum(rmseStats.mean)}</div>
-       
+        <div class="explain">expected deviation from the true local richness </div>
 
         <div class="k">Residuals of &beta;-diversity </div><div>${fmtNum(resbStats.mean)}</div>
+		<div class="explain">expected deviation from true spatial turnover</div>
       </div>
     `;
     results.appendChild(summary);
@@ -312,7 +360,7 @@
 
     const matches = data.filter(r => r.Species === s && r.Sonotypes === so);
 
-    <!--setStatus("α and β diversity error calculation")-->;
+    //setStatus("α and β diversity error calculation");
     render(matches, s, so);
   }
 
@@ -368,10 +416,6 @@
 
   document.addEventListener("DOMContentLoaded", loadCSV);
 </script>
-<footer class="site-footer">
-  Riccardo Fornaro<sup>a</sup>, Francesco Giannino<sup>a</sup>, Miriam Knörnschild<sup>b</sup>, Danilo Russo<sup>a</sup><br>
-  Dipartimento Di Agraria, Università Degli Studi Di Napoli Federico II, Portici (NA), Italy<sup>a</sup><br>
-  Humboldt University, Berlin, Germany<sup>b</sup><br>
-</footer>
+
 </body>
 </html>
